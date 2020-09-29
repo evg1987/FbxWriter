@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
+using System.Threading;
 
 namespace Fbx
 {
@@ -17,8 +19,11 @@ namespace Fbx
 		/// <returns>The top level document node</returns>
 		public static FbxDocument ReadBinary(string path)
 		{
-			if(path == null)
+			if (path == null)
+			{
 				throw new ArgumentNullException(nameof(path));
+			}
+
 			using (var stream = new FileStream(path, FileMode.Open))
 			{
 				var reader = new FbxBinaryReader(stream);
@@ -34,7 +39,10 @@ namespace Fbx
 		public static FbxDocument ReadAscii(string path)
 		{
 			if (path == null)
+			{
 				throw new ArgumentNullException(nameof(path));
+			}
+
 			using (var stream = new FileStream(path, FileMode.Open))
 			{
 				var reader = new FbxAsciiReader(stream);
@@ -46,16 +54,11 @@ namespace Fbx
 		/// Writes an FBX document
 		/// </summary>
 		/// <param name="document">The top level document node</param>
-		/// <param name="path"></param>
-		public static void WriteBinary(FbxDocument document, string path)
+		/// <param name="stream">Output stream</param>
+		public static void WriteBinary(FbxDocument document, Stream stream)
 		{
-			if (path == null)
-				throw new ArgumentNullException(nameof(path));
-			using (var stream = new FileStream(path, FileMode.Create))
-			{
-				var writer = new FbxBinaryWriter(stream);
-				writer.Write(document);
-			}
+			var writer = new FbxBinaryWriter(stream);
+			writer.Write(document);
 		}
 
 		/// <summary>
@@ -63,14 +66,19 @@ namespace Fbx
 		/// </summary>
 		/// <param name="document">The top level document node</param>
 		/// <param name="path"></param>
-		public static void WriteAscii(FbxDocument document, string path)
+		public static void WriteAscii(FbxDocument document, Stream stream)
 		{
-			if (path == null)
-				throw new ArgumentNullException(nameof(path));
-			using (var stream = new FileStream(path, FileMode.Create))
+			CultureInfo cultureInfoOriginal = Thread.CurrentThread.CurrentCulture;
+			try
 			{
+				Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+
 				var writer = new FbxAsciiWriter(stream);
 				writer.Write(document);
+			}
+			finally
+			{
+				Thread.CurrentThread.CurrentCulture = cultureInfoOriginal;
 			}
 		}
 	}

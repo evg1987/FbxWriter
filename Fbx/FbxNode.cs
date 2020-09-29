@@ -32,9 +32,13 @@ namespace Fbx
 			set
 			{
 				if (Properties.Count < 1)
+				{
 					Properties.Add(value);
+				}
 				else
+				{
 					Properties[0] = value;
+				}
 			}
 		}
 

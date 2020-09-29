@@ -24,11 +24,16 @@ namespace Fbx
 		/// not support seeking</exception>
 		public FbxBinaryReader(Stream stream, ErrorLevel errorLevel = ErrorLevel.Checked)
 		{
-			if(stream == null)
+			if (stream == null)
+			{
 				throw new ArgumentNullException(nameof(stream));
-			if(!stream.CanSeek)
-				throw new ArgumentException(
-					"The stream must support seeking. Try reading the data into a buffer first");
+			}
+
+			if (!stream.CanSeek)
+			{
+				throw new ArgumentException("The stream must support seeking. Try reading the data into a buffer first");
+			}
+
 			this.stream = new BinaryReader(stream, Encoding.ASCII);
 			this.errorLevel = errorLevel;
 		}
@@ -36,7 +41,7 @@ namespace Fbx
 		// Reads a single property
 		object ReadProperty()
 		{
-			var dataType = (char) stream.ReadByte();
+			var dataType = (char)stream.ReadByte();
 			switch (dataType)
 			{
 				case 'Y':
@@ -67,13 +72,16 @@ namespace Fbx
 					// Convert \0\1 to '::' and reverse the tokens
 					if (str.Contains(binarySeparator))
 					{
-						var tokens = str.Split(new [] {binarySeparator}, StringSplitOptions.None);
+						var tokens = str.Split(new[] { binarySeparator }, StringSplitOptions.None);
 						var sb = new StringBuilder();
 						bool first = true;
 						for (int i = tokens.Length - 1; i >= 0; i--)
-						{	
+						{
 							if (!first)
+							{
 								sb.Append(asciiSeparator);
+							}
+
 							sb.Append(tokens[i]);
 							first = false;
 						}
@@ -83,8 +91,7 @@ namespace Fbx
 				case 'R':
 					return stream.ReadBytes(stream.ReadInt32());
 				default:
-					throw new FbxException(stream.BaseStream.Position - 1,
-						"Invalid property data type `" + dataType + "'");
+					throw new FbxException(stream.BaseStream.Position - 1, "Invalid property data type `" + dataType + "'");
 			}
 		}
 
@@ -99,23 +106,31 @@ namespace Fbx
 			var endPos = stream.BaseStream.Position + compressedLen;
 			if (encoding != 0)
 			{
-				if(errorLevel >= ErrorLevel.Checked)
+				if (errorLevel >= ErrorLevel.Checked)
 				{
-					if(encoding != 1)
-						throw new FbxException(stream.BaseStream.Position - 1,
-							"Invalid compression encoding (must be 0 or 1)");
+					if (encoding != 1)
+					{
+						throw new FbxException(stream.BaseStream.Position - 1, "Invalid compression encoding (must be 0 or 1)");
+					}
+
 					var cmf = stream.ReadByte();
-					if((cmf & 0xF) != 8 || (cmf >> 4) > 7)
-						throw new FbxException(stream.BaseStream.Position - 1,
-							"Invalid compression format " + cmf);
+					if ((cmf & 0xF) != 8 || (cmf >> 4) > 7)
+					{
+						throw new FbxException(stream.BaseStream.Position - 1, "Invalid compression format " + cmf);
+					}
+
 					var flg = stream.ReadByte();
-					if(errorLevel >= ErrorLevel.Strict && ((cmf << 8) + flg) % 31 != 0)
-						throw new FbxException(stream.BaseStream.Position - 1,
-							"Invalid compression FCHECK");
-					if((flg & (1 << 5)) != 0)
-						throw new FbxException(stream.BaseStream.Position - 1,
-							"Invalid compression flags; dictionary not supported");
-				} else
+					if (errorLevel >= ErrorLevel.Strict && ((cmf << 8) + flg) % 31 != 0)
+					{
+						throw new FbxException(stream.BaseStream.Position - 1, "Invalid compression FCHECK");
+					}
+
+					if ((flg & (1 << 5)) != 0)
+					{
+						throw new FbxException(stream.BaseStream.Position - 1, "Invalid compression flags; dictionary not supported");
+					}
+				}
+				else
 				{
 					stream.BaseStream.Position += 2;
 				}
@@ -125,13 +140,15 @@ namespace Fbx
 			try
 			{
 				for (int i = 0; i < len; i++)
+				{
 					ret.SetValue(readPrimitive(s), i);
+				}
 			}
 			catch (InvalidDataException)
 			{
-				throw new FbxException(stream.BaseStream.Position - 1,
-					"Compressed data was malformed");
+				throw new FbxException(stream.BaseStream.Position - 1, "Compressed data was malformed");
 			}
+
 			if (encoding != 0)
 			{
 				if (errorLevel >= ErrorLevel.Checked)
@@ -140,11 +157,16 @@ namespace Fbx
 					var checksumBytes = new byte[sizeof(int)];
 					stream.BaseStream.Read(checksumBytes, 0, checksumBytes.Length);
 					int checksum = 0;
+
 					for (int i = 0; i < checksumBytes.Length; i++)
+					{
 						checksum = (checksum << 8) + checksumBytes[i];
-					if(checksum != ((DeflateWithChecksum)s.BaseStream).Checksum)
-						throw new FbxException(stream.BaseStream.Position,
-							"Compressed data has invalid checksum");
+					}
+
+					if (checksum != ((DeflateWithChecksum)s.BaseStream).Checksum)
+					{
+						throw new FbxException(stream.BaseStream.Position, "Compressed data has invalid checksum");
+					}
 				}
 				else
 				{
@@ -174,28 +196,35 @@ namespace Fbx
 			if (endOffset == 0)
 			{
 				// The end offset should only be 0 in a null node
-				if(errorLevel >= ErrorLevel.Checked && (numProperties != 0 || propertyListLen != 0 || !string.IsNullOrEmpty(name)))
-					throw new FbxException(stream.BaseStream.Position,
-						"Invalid node; expected NULL record");
+				if (errorLevel >= ErrorLevel.Checked && (numProperties != 0 || propertyListLen != 0 || !string.IsNullOrEmpty(name)))
+				{
+					throw new FbxException(stream.BaseStream.Position, "Invalid node; expected NULL record");
+				}
+
 				return null;
 			}
 
-			var node = new FbxNode {Name = name};
+			var node = new FbxNode { Name = name };
 
 			var propertyEnd = stream.BaseStream.Position + propertyListLen;
 			// Read properties
 			for (int i = 0; i < numProperties; i++)
+			{
 				node.Properties.Add(ReadProperty());
+			}
 
-			if(errorLevel >= ErrorLevel.Checked && stream.BaseStream.Position != propertyEnd)
-				throw new FbxException(stream.BaseStream.Position,
-					"Too many bytes in property list, end point is " + propertyEnd);
+			if (errorLevel >= ErrorLevel.Checked && stream.BaseStream.Position != propertyEnd)
+			{
+				throw new FbxException(stream.BaseStream.Position, "Too many bytes in property list, end point is " + propertyEnd);
+			}
 
 			// Read nested nodes
 			var listLen = endOffset - stream.BaseStream.Position;
-			if(errorLevel >= ErrorLevel.Checked && listLen < 0)
-				throw new FbxException(stream.BaseStream.Position,
-					"Node has invalid end point");
+			if (errorLevel >= ErrorLevel.Checked && listLen < 0)
+			{
+				throw new FbxException(stream.BaseStream.Position, "Node has invalid end point");
+			}
+
 			if (listLen > 0)
 			{
 				FbxNode nested;
@@ -204,10 +233,13 @@ namespace Fbx
 					nested = ReadNode(document);
 					node.Nodes.Add(nested);
 				} while (nested != null);
+
 				if (errorLevel >= ErrorLevel.Checked && stream.BaseStream.Position != endOffset)
-					throw new FbxException(stream.BaseStream.Position,
-						"Too many bytes in node, end point is " + endOffset);
+				{
+					throw new FbxException(stream.BaseStream.Position, "Too many bytes in node, end point is " + endOffset);
+				}
 			}
+
 			return node;
 		}
 
@@ -222,9 +254,11 @@ namespace Fbx
 			// Read header
 			bool validHeader = ReadHeader(stream.BaseStream);
 			if (errorLevel >= ErrorLevel.Strict && !validHeader)
-				throw new FbxException(stream.BaseStream.Position,
-					"Invalid header string");
-			var document = new FbxDocument {Version = (FbxVersion) stream.ReadInt32()};
+			{
+				throw new FbxException(stream.BaseStream.Position, "Invalid header string");
+			}
+
+			var document = new FbxDocument { Version = (FbxVersion)stream.ReadInt32() };
 
 			// Read nodes
 			var dataPos = stream.BaseStream.Position;
@@ -232,8 +266,10 @@ namespace Fbx
 			do
 			{
 				nested = ReadNode(document);
-				if(nested != null)
+				if (nested != null)
+				{
 					document.Nodes.Add(nested);
+				}
 			} while (nested != null);
 
 			// Read footer code
@@ -242,16 +278,20 @@ namespace Fbx
 			if (errorLevel >= ErrorLevel.Strict)
 			{
 				var validCode = GenerateFooterCode(document);
-				if(!CheckEqual(footerCode, validCode))
-					throw new FbxException(stream.BaseStream.Position - footerCodeSize,
-						"Incorrect footer code");
+				if (!CheckEqual(footerCode, validCode))
+				{
+					throw new FbxException(stream.BaseStream.Position - footerCodeSize, "Incorrect footer code");
+				}
 			}
 
 			// Read footer extension
 			dataPos = stream.BaseStream.Position;
 			var validFooterExtension = CheckFooter(stream, document.Version);
-			if(errorLevel >= ErrorLevel.Strict && !validFooterExtension)
+			if (errorLevel >= ErrorLevel.Strict && !validFooterExtension)
+			{
 				throw new FbxException(dataPos, "Invalid footer");
+			}
+
 			return document;
 		}
 	}

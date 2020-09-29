@@ -32,13 +32,19 @@ namespace Fbx
 		{
 			var tokens = path.Split('/');
 			FbxNodeList n = this;
+
 			foreach (var t in tokens)
 			{
 				if (t == "")
+				{
 					continue;
+				}
+
 				n = n[t];
 				if (n == null)
+				{
 					break;
+				}
 			}
 			return n as FbxNode;
 		}
